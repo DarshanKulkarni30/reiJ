@@ -1,12 +1,12 @@
 # Rei — See yourself. Shape yourself.
 
+> **Live Cloud Run URL**: [https://rei-683424490582.asia-southeast1.run.app](https://rei-683424490582.asia-southeast1.run.app) (Canonical) | [https://rei-e6vm73hvjq-as.a.run.app](https://rei-e6vm73hvjq-as.a.run.app) (Short URL)  
 > **Category**: Personal evolution and reflection. The journal is the interface. The product is a living personal model.  
 > **One-line**: A personal growth journal that learns from your experiences and helps you evolve with intention.  
 > **Challenge**: Built for the Google Cloud Run AI Challenge (`dev-tutorial=cloud-run-ai-challenge`).  
 > **Target Region**: `asia-southeast1` (Singapore)  
-> **Google Cloud Project ID**: `reij-83c6f`  
-> **Google Cloud Project Number**: `654994418664`  
-> **Service Name**: `rei-app`
+> **Google Cloud Project ID**: `reij-507805` (Firebase: `reij-83c6f`)  
+> **Service Name**: `rei`  
 
 ---
 
@@ -169,10 +169,10 @@ node scripts/set-admin.js <TARGET_USER_UID>
 Deploy the unified container directly to Cloud Run in `asia-southeast1` with Secret Manager binding:
 
 ```bash
-gcloud run deploy rei-app \
+gcloud run deploy rei \
   --source=. \
   --region=asia-southeast1 \
-  --project=reij-83c6f \
+  --project=reij-507805 \
   --platform=managed \
   --allow-unauthenticated \
   --set-secrets=GEMINI_API_KEY=GEMINI_API_KEY:latest
@@ -182,7 +182,12 @@ gcloud run deploy rei-app \
 Execute the exact command to tag the deployment for the Google Cloud Run AI Challenge:
 
 ```bash
-gcloud run services update rei-app --update-labels=dev-tutorial=cloud-run-ai-challenge --region=asia-southeast1
+gcloud run services update rei --update-labels=dev-tutorial=cloud-run-ai-challenge --region=asia-southeast1 --project=reij-507805
+```
+
+Live Service URL:
+```text
+https://rei-e6vm73hvjq-as.a.run.app
 ```
 
 ---
