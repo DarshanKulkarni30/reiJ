@@ -1,0 +1,111 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile and onboarding configuration",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "dob": { "type": "string" },
+        "lifeContext": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "whatMattersNow": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "desiredTraits": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "personBecoming": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["uid", "name", "desiredTraits"]
+    },
+    "JournalInteraction": {
+      "title": "JournalInteraction",
+      "description": "User journal entry and reflection responses",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "date": { "type": "string" },
+        "mood": { "type": "string" },
+        "intention": { "type": "string" },
+        "promptQuestion": { "type": "string" },
+        "freeWrite": { "type": "string" },
+        "eveningClose": { "type": "string" },
+        "emotion": { "type": "string" },
+        "theme": { "type": "string" },
+        "behavior": { "type": "string" },
+        "relatedTrait": { "type": "string" },
+        "intensity": { "type": "number" },
+        "reflectionQuestion": { "type": "string" },
+        "growthSignal": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "date", "freeWrite", "createdAt"]
+    },
+    "TraitModel": {
+      "title": "TraitModel",
+      "description": "Living model entity for an evolving trait with Potential, Observed, and Desired aspects",
+      "type": "object",
+      "properties": {
+        "trait": { "type": "string" },
+        "potential": { "type": "string" },
+        "observed": { "type": "string" },
+        "desired": { "type": "string" },
+        "evidenceQuotes": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "practices": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["trait", "potential", "observed", "desired"]
+    },
+    "WeeklyNote": {
+      "title": "WeeklyNote",
+      "description": "Weekly synthesis generated from the user's authentic reflections",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "weekLabel": { "type": "string" },
+        "themes": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "growthSignal": { "type": "string" },
+        "nextWeekFocus": { "type": "string" },
+        "entryCount": { "type": "number" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "weekLabel", "growthSignal", "nextWeekFocus"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Stores user profile and onboarding settings"
+    },
+    "/users/{userId}/interactions/{interactionId}": {
+      "schema": { "$ref": "#/entities/JournalInteraction" },
+      "description": "Stores daily journal logs, prompts, and reflection insights"
+    },
+    "/users/{userId}/model/{traitId}": {
+      "schema": { "$ref": "#/entities/TraitModel" },
+      "description": "Stores the user's living personal model for each target trait"
+    },
+    "/users/{userId}/weekly_notes/{noteId}": {
+      "schema": { "$ref": "#/entities/WeeklyNote" },
+      "description": "Stores weekly reflection synthesis notes"
+    }
+  }
+}
