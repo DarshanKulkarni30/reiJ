@@ -2,7 +2,10 @@
 
 > **Category**: Personal evolution and reflection. The journal is the interface. The product is a living personal model.  
 > **One-line**: A personal growth journal that learns from your experiences and helps you evolve with intention.  
-> **Challenge**: Built for the Google Cloud Run AI Challenge (`dev-tutorial=cloud-run-ai-challenge`).
+> **Challenge**: Built for the Google Cloud Run AI Challenge (`dev-tutorial=cloud-run-ai-challenge`).  
+> **Target Region**: `asia-south1` (Mumbai)  
+> **Google Cloud Project ID**: `reij-507805`  
+> **Service Name**: `rei-app`
 
 ---
 
@@ -15,7 +18,7 @@ $$\text{Capture} \longrightarrow \text{Understand} \longrightarrow \text{Reflect
 ### The Living Personal Model
 On the **Your Model** screen, personal growth is structured into three continuous columns:
 - **Potential**: Working hypotheses of innate capacities.
-- **Observed**: Concrete evidence extracted from your own journal entries and experiences.
+- **Observed**: Concrete evidence extracted from your own journal entries and experiences, substantiated in your own words.
 - **Desired**: The mature, intentional embodiment of who you are becoming.
 
 ### Voice & Principles
@@ -26,15 +29,19 @@ On the **Your Model** screen, personal growth is structured into three continuou
 
 ---
 
-## 2. Locked V1 Features
+## 2. Full V1 & V2 Capabilities
 
-1. **Authentication**: Firebase Google Sign-In only (isolated per-user state, no email/password forms).
+1. **Authentication**: Firebase Google Sign-In only (isolated per-user tenant state, no email/password forms).
 2. **Onboarding**: Name, optional birth date (used strictly as seed hypotheses for Potential, never astrology or fortune-telling), life context, core focus areas (3–5), three desired traits to cultivate, and a single anchor statement: *"The person you're becoming"*.
-3. **Today**: State/mood check-in, daily intention, one personalized reflection question, candid free write journal, optional evening close, and seamless save with error recovery.
+3. **Today**: State/mood check-in, daily intention, one personalized reflection question, candid free write journal, optional evening close, and seamless save with offline error recovery.
 4. **Journal**: Full chronological history isolated strictly to the authenticated user, searchable by text, theme, and trait tags, with full detail inspection and evening close editing.
-5. **Reflect**: The single next question, recurring themes identified across entries, observable behavior patterns, and an on-demand Weekly Synthesis note.
-6. **Grow**: The user's three chosen traits, converted into observable everyday behaviors, actionable micro-practices, and direct evidence quotes from the journal.
-7. **Your Model**: The living **Potential | Observed | Desired** architecture that updates from saved signals.
+5. **Journey (V2)**: Complete evolutionary timeline organized across time horizons (This Week, Last Week, Earlier This Month, Previous Milestones) and filterable by recurring themes and traits.
+6. **Reflect**: The single next question, recurring themes identified across entries, observable behavior patterns, and an on-demand Weekly Synthesis note.
+7. **Patterns (V2)**: Connects similar past entries for this user only, quoting the user's actual words and dates (never inventing history), and provides one deep follow-up question with saveable reflection.
+8. **Grow Practice Loop (V2)**: Converts the 3 chosen traits into observable behaviors and micro-practices to test. Next visit asks *"What happened when you tried [practice]?"* and saves user evidence directly to the trait and living model.
+9. **Your Model (V2)**: Potential / Observed / Desired columns updated from stored signals, displaying *"Why Rei observed this in your own words"*.
+10. **Profile & Evolution Edit (V2)**: Allows updating life context, focus areas, 3 traits, and *"the person you're becoming"* directly at any time without going through full initial onboarding.
+11. **Optional Email Check-in (V2)**: Safe opt-in toggle with exact gentle reminder *"Take a moment to check in with yourself."*. Zero journal content in emails; secrets managed exclusively via Secret Manager / environment; safely disabled if mailer secrets are absent.
 
 ---
 
@@ -42,12 +49,13 @@ On the **Your Model** screen, personal growth is structured into three continuou
 
 | Threat / Risk Vector | Severity | Mitigation in Rei |
 | :--- | :--- | :--- |
-| **API Key Exposure** | Critical | `GEMINI_API_KEY` is loaded exclusively server-side via Google Cloud Secret Manager / runtime environment. Never exposed to browser or bundled in Vite. |
-| **Cross-User Data Leakage** | Critical | Cloud Firestore security rules strictly require `request.auth.uid == userId` for all document paths (`/users/{userId}/{document=**}`). Default-deny on all other paths. |
-| **Prompt Injection via Journal Text** | High | User journal text is treated strictly as untrusted DATA enclosed in explicit boundaries. Server prompts instruct the model to disregard instructions embedded within user input. |
-| **Model Availability / Outages** | High | Multi-model fallback cascade using `@google/genai`: tries `gemini-3.6-flash` $\to$ `gemini-3.1-flash-lite` $\to$ `gemini-flash-latest` $\to$ `gemini-3.7-flash` on 429/500/503 errors. |
-| **Denial of Service / Abuse** | Medium | Server-side per-user rate limiting (e.g., 20 reflection requests/minute max per UID). |
-| **Data Loss on Network Disruption** | Medium | The client retains the active draft in local memory and displays an inline **Retry Save** action if an API write encounters latency or interruption. |
+| **Client-Side Key Leakage** | Critical | `GEMINI_API_KEY` is loaded exclusively server-side via Google Cloud Secret Manager / runtime environment. Never exposed to browser or bundled in Vite. |
+| **Cross-User Tenant Isolation** | Critical | Cloud Firestore security rules strictly require `request.auth.uid == userId` for all document paths (`/users/{userId}/{document=**}`). Default-deny on all other paths. |
+| **Prompt Injection via Journal Text** | High | User journal text is treated strictly as untrusted DATA enclosed in `<user_journal_data>` delimiters. Server prompts command the model to disregard instructions embedded within user input. |
+| **Model Availability / Outages** | High | Multi-model fallback cascade using `@google/genai`: rotates through `gemini-3.6-flash` $\to$ `gemini-3.1-flash-lite` $\to$ `gemini-flash-latest` $\to$ `gemini-3.7-flash` on 429/500/503 errors. |
+| **Unauthorized / Spam Outbound Email** | Medium | Email check-in is strictly opt-in; body is hardcoded to *"Take a moment to check in with yourself."*; no journal text included; safely disabled if keys are absent. |
+| **Denial of Service / Abuse** | Medium | Server-side per-user rate limiting (e.g., 30 reflection requests/minute max per UID/IP). Payload size caps enforced. |
+| **Data Loss on Network Disruption** | Medium | The client retains drafts in local storage and displays an inline **Retry Save** action if an API write encounters latency or interruption. |
 
 ---
 
@@ -55,7 +63,7 @@ On the **Your Model** screen, personal growth is structured into three continuou
 
 ### Prerequisites
 - Google Cloud Project: `reij-507805`
-- Cloud Run Region: `us-central1`
+- Cloud Run Region: `asia-south1`
 - Google Cloud SDK (`gcloud`) installed and authenticated
 
 ### Step 1: Enable Google Cloud APIs
@@ -106,15 +114,15 @@ gcloud secrets add-iam-policy-binding GEMINI_API_KEY --member="serviceAccount:YO
 
 ---
 
-## 5. Deployment to Cloud Run
+## 5. Deployment to Cloud Run (asia-south1)
 
 ### Deploy from Source
-Deploy the unified container directly to Cloud Run with Secret Manager binding:
+Deploy the unified container directly to Cloud Run in `asia-south1` with Secret Manager binding:
 
 ```bash
 gcloud run deploy rei-app \
   --source=. \
-  --region=us-central1 \
+  --region=asia-south1 \
   --project=reij-507805 \
   --platform=managed \
   --allow-unauthenticated \
@@ -125,7 +133,7 @@ gcloud run deploy rei-app \
 Execute the exact command to tag the deployment for the Google Cloud Run AI Challenge:
 
 ```bash
-gcloud run services update rei-app --update-labels=dev-tutorial=cloud-run-ai-challenge --region=us-central1
+gcloud run services update rei-app --update-labels=dev-tutorial=cloud-run-ai-challenge --region=asia-south1
 ```
 
 ---
@@ -133,9 +141,9 @@ gcloud run services update rei-app --update-labels=dev-tutorial=cloud-run-ai-cha
 ## 6. How Gemini is Proxied Server-Side
 
 All interactions with the Gemini API run inside `server.ts` through `@google/genai`:
-- The client frontend sends requests to `/api/reflect`, `/api/daily-prompt`, `/api/weekly-note`, and `/api/model-update`.
+- The client frontend sends requests to `/api/reflect`, `/api/daily-prompt`, `/api/weekly-note`, `/api/model-update`, `/api/patterns`, and `/api/email-checkin`.
 - The Express server extracts the user's verified identity token and validates rate limits.
-- The server constructs structured prompts enclosing user journal entries in `<journal_entry>` data blocks to prevent prompt injection.
+- The server constructs structured prompts enclosing user journal entries in `<user_journal_data>` data blocks to prevent prompt injection.
 - The `generateContentWithFallback` helper safely rotates through the designated fallback models (`gemini-3.6-flash` $\to$ `gemini-3.1-flash-lite` $\to$ `gemini-flash-latest` $\to$ `gemini-3.7-flash`) if rate limits or transient errors arise.
 - Raw outputs are sanitized and type-checked before returning to the client.
 
@@ -151,11 +159,12 @@ All interactions with the Gemini API run inside `server.ts` through `@google/gen
 | **4** | **Save & Reflection** | Clicking "Save & Reflect" calls server-side Gemini, extracts internal signals (emotion, theme, behavior, related trait), and displays Rei's single reflection question. |
 | **5** | **Retry on Failure** | If offline or network times out, draft text remains intact and a "Retry Save" button appears. |
 | **6** | **Journal History** | Journal tab lists entries in reverse chronological order. Searching by keyword or filtering by trait narrows down the list. |
-| **7** | **Entry Inspection & Evening Close** | Clicking an entry opens detail modal showing full text, internal signals, and allows editing the evening close. |
-| **8** | **Reflect & Weekly Synthesis** | Reflect view displays latest question, recurring theme frequency, and generates a structured weekly synthesis note. |
-| **9** | **Grow Behaviors & Evidence** | Grow view maps each of the 3 chosen traits to concrete observable behaviors, a daily micro-practice, and direct quotes from journal history. |
-| **10** | **Your Model Evolution** | Your Model displays the 3-column architecture (**Potential | Observed | Desired**) for each trait with an "Update From Signals" synthesizer. |
-| **11** | **Sign Out & Session Isolation** | Signing out clears session; signing back in restores all history, traits, and living model without data loss. |
+| **7** | **Journey Timeline (V2)** | Journey tab maps entries across time horizons and filters by theme with direct quotes. |
+| **8** | **Patterns (V2)** | Patterns tab groups past entries by recurring themes, quotes real text without inventing history, and provides one follow-up question with saveable user reflection. |
+| **9** | **Grow Practice Loop (V2)** | Grow view presents the 3 traits with micro-practices. Next visit asks "What happened when you tried?", saves user evidence, and persists to Your Model. |
+| **10** | **Your Model Evolution (V2)** | Your Model displays Potential \| Observed \| Desired columns with "Why Rei observed this in your own words" and update from stored signals. |
+| **11** | **Profile Edit & Email Check-in (V2)** | Profile modal allows updating context, traits, person becoming, and optional email check-in toggle ("Take a moment to check in with yourself.") without full onboarding reset. |
+| **12** | **Sign Out & Session Isolation** | Signing out clears session; signing back in restores all history, traits, practices, and living model without data loss. |
 
 ---
 

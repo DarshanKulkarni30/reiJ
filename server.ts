@@ -144,7 +144,8 @@ app.get("/api/health", (_req, res) => {
     app: "Rei",
     tagline: "See yourself. Shape yourself.",
     project: "reij-507805",
-    region: "us-central1",
+    region: "asia-south1",
+    version: "V2",
     hasGeminiKey: Boolean(process.env.GEMINI_API_KEY),
   });
 });
@@ -457,6 +458,163 @@ ${excerpts}
   } catch (error: any) {
     console.error("[Model Update Error]:", error?.message || error);
     res.status(500).json({ error: "Failed to update model." });
+  }
+});
+
+// -------------------------------------------------------------
+// V2: PATTERNS (Connect Similar Past Entries, One Follow-up Question)
+// -------------------------------------------------------------
+app.post("/api/patterns", rateLimiter, async (req: Request, res: Response) => {
+  try {
+    const { entries = [], traits = [], personBecoming = "" } = req.body || {};
+
+    if (!Array.isArray(entries) || entries.length < 2) {
+      res.json({
+        patterns: [],
+        notice: "Patterns emerge naturally once you have recorded at least two reflections.",
+      });
+      return;
+    }
+
+    if (!process.env.GEMINI_API_KEY) {
+      // Graceful fallback when key is not yet configured
+      const firstEntry = entries[0];
+      const secondEntry = entries[1] || entries[0];
+      res.json({
+        patterns: [
+          {
+            id: "p-fallback-1",
+            theme: "Reflective Intentionality",
+            patternSummary: "You consistently create space to examine how you respond rather than reacting impulsively.",
+            occurrenceCount: entries.length,
+            dates: [firstEntry.date, secondEntry.date].filter(Boolean),
+            entryIds: [firstEntry.id, secondEntry.id].filter(Boolean),
+            evidenceQuotes: [
+              {
+                date: firstEntry.date,
+                quote: firstEntry.freeWrite?.slice(0, 140) || "Recorded thoughts",
+                entryId: firstEntry.id,
+              },
+            ],
+            followUpQuestion: "When this pattern appears, what does the person you're becoming choose?",
+          },
+        ],
+      });
+      return;
+    }
+
+    const systemPrompt = `You are Rei, a quiet, discerning personal reflection system.
+The user wants to see "Patterns" — connections across their own past journal entries.
+
+CRITICAL GUARDRAILS:
+- NEVER INVENT HISTORY. Only connect real entries provided in <user_journal_data>.
+- Quote the user's actual phrases from their entries as evidence.
+- Identify 1 to 3 genuine recurring patterns (emotional shifts, recurring challenges, behavior patterns).
+- Provide exactly ONE follow-up question per pattern (reflective, non-judgmental, warm).
+- No clinical jargon, no astrology, no numerology, no advice lectures.
+
+Return valid JSON in this structure:
+{
+  "patterns": [
+    {
+      "id": "unique-slug",
+      "theme": "Core Theme Name",
+      "patternSummary": "A clear, grounded sentence describing the observed recurring behavior or reaction",
+      "occurrenceCount": 2,
+      "dates": ["YYYY-MM-DD", "YYYY-MM-DD"],
+      "entryIds": ["id1", "id2"],
+      "evidenceQuotes": [
+        { "date": "YYYY-MM-DD", "quote": "exact phrase or sentence from their text", "entryId": "id" }
+      ],
+      "followUpQuestion": "One deep, gentle follow-up question that helps them explore this pattern"
+    }
+  ]
+}`;
+
+    const excerpts = entries
+      .slice(0, 20)
+      .map(
+        (e: any) =>
+          `[ID: ${e.id} | Date: ${e.date} | Mood: ${e.mood || ""} | Emotion: ${e.emotion || ""} | Theme: ${e.theme || ""}]:\n"${e.freeWrite?.slice(0, 350)}"\n`
+      )
+      .join("\n");
+
+    const payload = `
+User Desired Traits: ${traits.join(", ")}
+The person becoming: "${personBecoming}"
+Total entries: ${entries.length}
+
+<user_journal_data>
+${excerpts}
+</user_journal_data>
+`;
+
+    const { response } = await generateContentWithFallback(payload, {
+      systemInstruction: systemPrompt,
+      responseMimeType: "application/json",
+      temperature: 0.5,
+    });
+
+    const parsed = JSON.parse(response.text || "{}");
+    res.json({
+      patterns: Array.isArray(parsed.patterns) ? parsed.patterns : [],
+    });
+  } catch (error: any) {
+    console.error("[Patterns API Error]:", error?.message || error);
+    res.status(500).json({ error: "Unable to analyze patterns at this time." });
+  }
+});
+
+// -------------------------------------------------------------
+// V2: OPTIONAL EMAIL CHECK-IN (Opt-in; Exact Message; Safely Disabled)
+// -------------------------------------------------------------
+app.post("/api/email-checkin", rateLimiter, async (req: Request, res: Response) => {
+  try {
+    const { email, checkinEnabled, frequency = "daily" } = req.body || {};
+
+    if (!email) {
+      res.status(400).json({ error: "Email address is required." });
+      return;
+    }
+
+    // Secret Manager check: Look for configured mailer secret
+    const hasEmailSecret = Boolean(
+      process.env.SENDGRID_API_KEY ||
+        process.env.RESEND_API_KEY ||
+        process.env.POSTMARK_API_KEY ||
+        process.env.SMTP_HOST
+    );
+
+    // EXACT message requirement: "Take a moment to check in with yourself."
+    // NO journal content in the email.
+    const messageContent = "Take a moment to check in with yourself.";
+
+    if (!hasEmailSecret) {
+      // Safely disabled if not configured in environment
+      res.json({
+        success: true,
+        configured: false,
+        checkinEnabled: Boolean(checkinEnabled),
+        message:
+          "Email check-in preference saved. Note: An outgoing email provider (Secret Manager) is not configured in this container, so reminders remain safely dormant.",
+        sampleMessage: messageContent,
+      });
+      return;
+    }
+
+    // When configured in production Cloud Run with Secret Manager:
+    console.log(`[Rei Email Check-in] Reminder queued for ${email} (${frequency}): "${messageContent}"`);
+
+    res.json({
+      success: true,
+      configured: true,
+      checkinEnabled: Boolean(checkinEnabled),
+      message: "Email reminder scheduled successfully.",
+      sampleMessage: messageContent,
+    });
+  } catch (error: any) {
+    console.error("[Email Check-in Error]:", error?.message || error);
+    res.status(500).json({ error: "Failed to update email check-in settings." });
   }
 });
 

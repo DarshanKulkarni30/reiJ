@@ -11,7 +11,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { db, auth, isConfigured, handleFirestoreError, OperationType } from "./firebase";
-import { UserProfile, JournalInteraction, TraitModel, WeeklyNote } from "../types";
+import { UserProfile, JournalInteraction, TraitModel, WeeklyNote, PracticeRecord, PatternInsight } from "../types";
 
 // Local storage fallback helpers
 function getLocalKey(userId: string, subkey: string): string {
@@ -215,3 +215,103 @@ export async function saveWeeklyNote(userId: string, note: WeeklyNote): Promise<
     }
   }
 }
+
+// -------------------------------------------------------------
+// PRACTICE LOOP (Grow: Behaviors, Next Visit Follow-up & Evidence)
+// -------------------------------------------------------------
+export async function getPractices(userId: string): Promise<PracticeRecord[]> {
+  const path = `users/${userId}/practices`;
+  if (isConfigured && db) {
+    try {
+      const collRef = collection(db, "users", userId, "practices");
+      const q = query(collRef, orderBy("createdAt", "desc"));
+      const snap = await getDocs(q);
+      const list: PracticeRecord[] = [];
+      snap.forEach((doc) => list.push({ id: doc.id, ...(doc.data() as any) }));
+      localStorage.setItem(getLocalKey(userId, "practices"), JSON.stringify(list));
+      return list;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, path, auth);
+    }
+  }
+
+  const raw = localStorage.getItem(getLocalKey(userId, "practices"));
+  return raw ? JSON.parse(raw) : [];
+}
+
+export async function savePractice(userId: string, practice: PracticeRecord): Promise<void> {
+  const path = `users/${userId}/practices/${practice.id}`;
+
+  const existing = await getPractices(userId);
+  const index = existing.findIndex((p) => p.id === practice.id);
+  let updatedList: PracticeRecord[];
+  if (index >= 0) {
+    updatedList = [...existing];
+    updatedList[index] = practice;
+  } else {
+    updatedList = [practice, ...existing];
+  }
+  localStorage.setItem(getLocalKey(userId, "practices"), JSON.stringify(updatedList));
+
+  if (isConfigured && db) {
+    try {
+      const docRef = doc(db, "users", userId, "practices", practice.id);
+      await setDoc(docRef, {
+        ...practice,
+        userId,
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, path, auth);
+    }
+  }
+}
+
+// -------------------------------------------------------------
+// PATTERNS (Connecting Similar Past Entries for this user only)
+// -------------------------------------------------------------
+export async function getPatternInsights(userId: string): Promise<PatternInsight[]> {
+  const path = `users/${userId}/patterns`;
+  if (isConfigured && db) {
+    try {
+      const collRef = collection(db, "users", userId, "patterns");
+      const q = query(collRef, orderBy("createdAt", "desc"));
+      const snap = await getDocs(q);
+      const list: PatternInsight[] = [];
+      snap.forEach((doc) => list.push({ id: doc.id, ...(doc.data() as any) }));
+      localStorage.setItem(getLocalKey(userId, "patterns"), JSON.stringify(list));
+      return list;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, path, auth);
+    }
+  }
+
+  const raw = localStorage.getItem(getLocalKey(userId, "patterns"));
+  return raw ? JSON.parse(raw) : [];
+}
+
+export async function savePatternInsight(userId: string, pattern: PatternInsight): Promise<void> {
+  const path = `users/${userId}/patterns/${pattern.id}`;
+
+  const existing = await getPatternInsights(userId);
+  const index = existing.findIndex((p) => p.id === pattern.id);
+  let updatedList: PatternInsight[];
+  if (index >= 0) {
+    updatedList = [...existing];
+    updatedList[index] = pattern;
+  } else {
+    updatedList = [pattern, ...existing];
+  }
+  localStorage.setItem(getLocalKey(userId, "patterns"), JSON.stringify(updatedList));
+
+  if (isConfigured && db) {
+    try {
+      const docRef = doc(db, "users", userId, "patterns", pattern.id);
+      await setDoc(docRef, {
+        ...pattern,
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, path, auth);
+    }
+  }
+}
+

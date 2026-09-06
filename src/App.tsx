@@ -6,15 +6,19 @@ import { OnboardingModal } from "./components/OnboardingModal";
 import { Header } from "./components/Header";
 import { TodayView } from "./components/TodayView";
 import { JournalView } from "./components/JournalView";
+import { JourneyView } from "./components/JourneyView";
 import { ReflectView } from "./components/ReflectView";
+import { PatternsView } from "./components/PatternsView";
 import { GrowView } from "./components/GrowView";
 import { YourModelView } from "./components/YourModelView";
 import { EntryDetailModal } from "./components/EntryDetailModal";
+import { ProfileEditModal } from "./components/ProfileEditModal";
 
 const MainApp: React.FC = () => {
   const { currentUser, userProfile, loading, isOnboarded } = useAuth();
   const [activeTab, setActiveTab] = useState<ActiveTab>("today");
   const [selectedEntry, setSelectedEntry] = useState<JournalInteraction | null>(null);
+  const [isProfileEditOpen, setIsProfileEditOpen] = useState<boolean>(false);
 
   if (loading) {
     return (
@@ -43,14 +47,18 @@ const MainApp: React.FC = () => {
     <div className="min-h-screen bg-[#FBFBF9] text-[#1E201E] flex flex-col justify-between selection:bg-[#E3E8E3]">
       {/* Header & Nav */}
       <div>
-        <Header activeTab={activeTab} setActiveTab={setActiveTab} />
+        <Header
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          onOpenProfileEdit={() => setIsProfileEditOpen(true)}
+        />
 
         {/* Active Tab View */}
         <main className="pb-16">
           {activeTab === "today" && (
             <TodayView
               onEntrySaved={() => {
-                // optionally switch to journal or keep on today
+                // Keep on today or explore journey
               }}
               goToJournal={() => setActiveTab("journal")}
             />
@@ -63,7 +71,16 @@ const MainApp: React.FC = () => {
             />
           )}
 
+          {activeTab === "journey" && (
+            <JourneyView
+              onSelectEntry={(entry) => setSelectedEntry(entry)}
+              onWriteNew={() => setActiveTab("today")}
+            />
+          )}
+
           {activeTab === "reflect" && <ReflectView />}
+
+          {activeTab === "patterns" && <PatternsView />}
 
           {activeTab === "grow" && <GrowView />}
 
@@ -82,11 +99,17 @@ const MainApp: React.FC = () => {
         />
       )}
 
+      {/* Profile & Evolution Edit Modal */}
+      <ProfileEditModal
+        isOpen={isProfileEditOpen}
+        onClose={() => setIsProfileEditOpen(false)}
+      />
+
       {/* Understated Disclaimer Footer */}
       <footer className="border-t border-[#EAECE6] bg-[#FAFBF8] py-6 px-6 text-center text-xs text-[#7A807A] space-y-1">
         <p>Rei is a private reflection tool, not medical, mental-health, or financial advice.</p>
         <p className="text-[11px] text-[#9A9E9A]">
-          Built with care for the Cloud Run AI Challenge • Google Cloud & Firebase
+          Built with care for the Cloud Run AI Challenge • Google Cloud & Firebase • Region: asia-south1
         </p>
       </footer>
     </div>

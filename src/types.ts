@@ -17,6 +17,9 @@ export interface UserProfile {
   whatMattersNow: string[];
   desiredTraits: string[];
   personBecoming: string;
+  emailCheckinEnabled?: boolean;
+  emailCheckinTime?: string;
+  emailCheckinFrequency?: "daily" | "weekly";
   createdAt: string;
   updatedAt: string;
 }
@@ -45,12 +48,40 @@ export interface JournalInteraction {
   updatedAt?: string;
 }
 
+export interface PracticeRecord {
+  id: string;
+  userId: string;
+  trait: string;
+  behavior: string;
+  practicePrompt: string;
+  status: "active" | "reflected";
+  whatHappened?: string;
+  savedEvidence?: string;
+  reflectionQuestion?: string;
+  createdAt: string;
+  reflectedAt?: string;
+}
+
+export interface PatternInsight {
+  id: string;
+  theme: string;
+  patternSummary: string;
+  occurrenceCount: number;
+  dates: string[];
+  entryIds: string[];
+  evidenceQuotes: { date: string; quote: string; entryId: string }[];
+  followUpQuestion: string;
+  userReflection?: string;
+  createdAt: string;
+}
+
 export interface TraitModel {
   trait: string;
   potential: string;
   observed: string;
   desired: string;
   evidenceQuotes?: string[];
+  evidenceDetails?: { date: string; quote: string; signal: string }[];
   practices?: string[];
   updatedAt?: string;
 }
@@ -66,4 +97,4 @@ export interface WeeklyNote {
   createdAt: string;
 }
 
-export type ActiveTab = "today" | "journal" | "reflect" | "grow" | "model";
+export type ActiveTab = "today" | "journal" | "journey" | "reflect" | "patterns" | "grow" | "model";
