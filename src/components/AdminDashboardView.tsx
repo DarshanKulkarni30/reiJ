@@ -32,6 +32,7 @@ export const AdminDashboardView: React.FC = () => {
         headers: {
           Authorization: `Bearer ${token || ""}`,
           "x-user-id": currentUser?.uid || "",
+          "x-user-email": currentUser?.email || "",
         },
       });
 

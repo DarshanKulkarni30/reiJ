@@ -30,7 +30,9 @@ export const Header: React.FC<HeaderProps> = ({
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [themePickerOpen, setThemePickerOpen] = useState(false);
 
-  const isAdmin = userProfile?.role === "admin";
+  const isAdmin =
+    userProfile?.role === "admin" ||
+    currentUser?.email?.toLowerCase() === "darshan.kulkarni30@gmail.com";
 
   const primaryTabs: { id: ActiveTab; label: string }[] = [
     { id: "today", label: "Today" },

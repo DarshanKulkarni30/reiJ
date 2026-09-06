@@ -38,7 +38,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const unsubscribe = onAuthStateChanged(auth, async (user) => {
         if (user) {
           setCurrentUser(user);
-          const profile = await getUserProfile(user.uid);
+          let profile = await getUserProfile(user.uid);
+          if (user.email?.toLowerCase() === "darshan.kulkarni30@gmail.com") {
+            if (!profile) {
+              profile = {
+                uid: user.uid,
+                name: user.displayName || "Darshan",
+                traits: ["Confidence", "Courage", "Consistency"],
+                idealSelf: "The person you are becoming",
+                role: "admin",
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              };
+              saveUserProfile(profile).catch(() => {});
+            } else if (profile.role !== "admin") {
+              profile.role = "admin";
+              saveUserProfile(profile).catch(() => {});
+            }
+          }
           setUserProfile(profile);
         } else {
           // Check if user was previously authenticated in preview mode
@@ -103,7 +120,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         photoURL: mockUser.photoURL,
       }));
       setCurrentUser(mockUser);
-      const profile = await getUserProfile(mockUser.uid);
+      let profile = await getUserProfile(mockUser.uid);
+      if (!profile) {
+        profile = {
+          uid: mockUser.uid,
+          name: "Darshan",
+          traits: ["Confidence", "Courage", "Consistency"],
+          idealSelf: "The person you are becoming",
+          role: "admin",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        saveUserProfile(profile).catch(() => {});
+      } else if (profile.role !== "admin") {
+        profile.role = "admin";
+        saveUserProfile(profile).catch(() => {});
+      }
       setUserProfile(profile);
     } finally {
       setLoading(false);
@@ -119,7 +151,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const result = await signInWithPopup(auth, googleProvider);
           const user = result.user;
           setCurrentUser(user);
-          const profile = await getUserProfile(user.uid);
+          let profile = await getUserProfile(user.uid);
+          if (user.email?.toLowerCase() === "darshan.kulkarni30@gmail.com") {
+            if (!profile) {
+              profile = {
+                uid: user.uid,
+                name: user.displayName || "Darshan",
+                traits: ["Confidence", "Courage", "Consistency"],
+                idealSelf: "The person you are becoming",
+                role: "admin",
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              };
+              saveUserProfile(profile).catch(() => {});
+            } else if (profile.role !== "admin") {
+              profile.role = "admin";
+              saveUserProfile(profile).catch(() => {});
+            }
+          }
           setUserProfile(profile);
           return;
         } catch (fbErr: any) {
