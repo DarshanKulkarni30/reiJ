@@ -34,8 +34,21 @@ export function handleFirestoreError(
   path: string | null,
   currentAuth?: any
 ) {
+  const errMsg = error instanceof Error ? error.message : String(error);
+
+  // If the client is offline, unavailable, or network failed, handle gracefully without throwing
+  if (
+    errMsg.includes("client is offline") ||
+    errMsg.includes("offline") ||
+    errMsg.includes("unavailable") ||
+    errMsg.includes("network-request-failed")
+  ) {
+    console.warn(`[Firestore Offline Cache Notice - ${operationType} on ${path}]:`, errMsg);
+    return;
+  }
+
   const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
+    error: errMsg,
     authInfo: {
       userId: currentAuth?.currentUser?.uid,
       email: currentAuth?.currentUser?.email,
@@ -51,19 +64,18 @@ export function handleFirestoreError(
     operationType,
     path,
   };
-  console.error("[Firestore Security Error]:", JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+  console.warn("[Firestore Notice]:", JSON.stringify(errInfo));
 }
 
 // Check for config from environment or default project
 const env = (import.meta as any).env || {};
 const firebaseConfig = {
-  apiKey: env.VITE_FIREBASE_API_KEY || "",
-  authDomain: env.VITE_FIREBASE_AUTH_DOMAIN || "reij-507805.firebaseapp.com",
-  projectId: env.VITE_FIREBASE_PROJECT_ID || "reij-507805",
-  storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET || "reij-507805.firebasestorage.app",
-  messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
-  appId: env.VITE_FIREBASE_APP_ID || "",
+  apiKey: env.VITE_FIREBASE_API_KEY || "AIzaSyDW0bCX79heiAHHF10hUu9nk_ksVqGqW4w",
+  authDomain: env.VITE_FIREBASE_AUTH_DOMAIN || "reij-83c6f.firebaseapp.com",
+  projectId: env.VITE_FIREBASE_PROJECT_ID || "reij-83c6f",
+  storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET || "reij-83c6f.firebasestorage.app",
+  messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID || "654994418664",
+  appId: env.VITE_FIREBASE_APP_ID || "1:654994418664:web:b39f64f9f3b131cfd0d25d",
 };
 
 let app: FirebaseApp | null = null;

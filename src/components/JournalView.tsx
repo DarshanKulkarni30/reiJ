@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { JournalInteraction } from "../types";
 import { getJournalInteractions } from "../lib/storage";
-import { Search, Calendar, ChevronRight, Filter, BookOpen, Clock } from "lucide-react";
+import { Search, Calendar, ChevronRight, Filter, BookOpen, Clock, MapPin, Camera } from "lucide-react";
 
 interface JournalViewProps {
   onSelectEntry: (entry: JournalInteraction) => void;
@@ -168,11 +168,25 @@ export const JournalView: React.FC<JournalViewProps> = ({ onSelectEntry, onWrite
                   )}
                 </div>
 
-                {entry.relatedTrait && (
-                  <span className="px-2.5 py-0.5 rounded-full bg-[#EBF0E9] text-[#2D3A2F] text-[11px] font-medium">
-                    {entry.relatedTrait}
-                  </span>
-                )}
+                <div className="flex items-center gap-1.5">
+                  {entry.location && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#F2F5EF] text-[#2D3A2F] text-[10px] font-medium border border-[#DEE2D8]">
+                      <MapPin className="w-2.5 h-2.5" />
+                      <span className="max-w-[120px] truncate">{entry.location.name}</span>
+                    </span>
+                  )}
+                  {entry.photoUrl && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#F2F5EF] text-[#2D3A2F] text-[10px] font-medium border border-[#DEE2D8]">
+                      <Camera className="w-2.5 h-2.5" />
+                      <span>Photo</span>
+                    </span>
+                  )}
+                  {entry.relatedTrait && (
+                    <span className="px-2.5 py-0.5 rounded-full bg-[#EBF0E9] text-[#2D3A2F] text-[11px] font-medium">
+                      {entry.relatedTrait}
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* User Entry Snippet */}

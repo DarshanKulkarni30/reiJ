@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -e
+
+echo ""
+echo "🚀 [Antigravity] Running pre-push security & quality verification..."
+echo "-------------------------------------------------------------------"
+
+echo "1. Validating TypeScript static types (tsc --noEmit)..."
+npm run lint
+
+echo "2. Running Antigravity pre-deployment security policy audit..."
+npm run test:security
+
+echo "3. Executing automated test suite (TDD)..."
+npm run test
+
+echo "4. Testing unified production build (Vite + esbuild)..."
+npm run build
+
+echo "-------------------------------------------------------------------"
+echo "✅ All Antigravity security gates & build checks passed successfully!"
+echo "🚀 Proceeding with push / deploy."
+echo ""

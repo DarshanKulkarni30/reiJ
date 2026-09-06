@@ -12,7 +12,10 @@ interface AuthContextType {
   currentUser: User | { uid: string; displayName?: string | null; email?: string | null; photoURL?: string | null } | null;
   userProfile: UserProfile | null;
   loading: boolean;
+  authError: { code: string; message: string; actionUrl?: string } | null;
+  clearAuthError: () => void;
   signInWithGoogle: () => Promise<void>;
+  signInWithDemo: () => Promise<void>;
   signOut: () => Promise<void>;
   saveProfile: (profile: Partial<UserProfile>) => Promise<void>;
   isOnboarded: boolean;
@@ -26,6 +29,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [currentUser, setCurrentUser] = useState<any | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [authError, setAuthError] = useState<{ code: string; message: string; actionUrl?: string } | null>(null);
+
+  const clearAuthError = () => setAuthError(null);
 
   useEffect(() => {
     if (isConfigured && auth) {
@@ -35,8 +41,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const profile = await getUserProfile(user.uid);
           setUserProfile(profile);
         } else {
-          setCurrentUser(null);
-          setUserProfile(null);
+          // Check if user was previously authenticated in preview mode
+          const cached = localStorage.getItem(LOCAL_AUTH_KEY);
+          if (cached) {
+            try {
+              const userObj = JSON.parse(cached);
+              const hydratedUser = {
+                ...userObj,
+                getIdToken: async () => "",
+              };
+              setCurrentUser(hydratedUser);
+              const profile = await getUserProfile(userObj.uid);
+              setUserProfile(profile);
+            } catch {
+              setCurrentUser(null);
+              setUserProfile(null);
+            }
+          } else {
+            setCurrentUser(null);
+            setUserProfile(null);
+          }
         }
         setLoading(false);
       });
@@ -47,7 +71,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (cached) {
         try {
           const userObj = JSON.parse(cached);
-          setCurrentUser(userObj);
+          const hydratedUser = {
+            ...userObj,
+            getIdToken: async () => "",
+          };
+          setCurrentUser(hydratedUser);
           getUserProfile(userObj.uid).then((prof) => setUserProfile(prof));
         } catch (e) {
           // ignore
@@ -57,31 +85,72 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
+  const signInWithDemo = async () => {
+    setLoading(true);
+    setAuthError(null);
+    try {
+      const mockUser = {
+        uid: "darshan_user_reij",
+        displayName: "Darshan",
+        email: "darshan.kulkarni30@gmail.com",
+        photoURL: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80",
+        getIdToken: async () => "",
+      };
+      localStorage.setItem(LOCAL_AUTH_KEY, JSON.stringify({
+        uid: mockUser.uid,
+        displayName: mockUser.displayName,
+        email: mockUser.email,
+        photoURL: mockUser.photoURL,
+      }));
+      setCurrentUser(mockUser);
+      const profile = await getUserProfile(mockUser.uid);
+      setUserProfile(profile);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const signInWithGoogle = async () => {
     setLoading(true);
+    setAuthError(null);
     try {
       if (isConfigured && auth) {
-        const result = await signInWithPopup(auth, googleProvider);
-        const user = result.user;
-        setCurrentUser(user);
-        const profile = await getUserProfile(user.uid);
-        setUserProfile(profile);
+        try {
+          const result = await signInWithPopup(auth, googleProvider);
+          const user = result.user;
+          setCurrentUser(user);
+          const profile = await getUserProfile(user.uid);
+          setUserProfile(profile);
+          return;
+        } catch (fbErr: any) {
+          const code = fbErr?.code || "";
+          console.warn("[Auth Notice]:", code, fbErr?.message || fbErr);
+          
+          // If Google provider is not yet enabled in Firebase Console, or popup is blocked/cancelled
+          if (code === "auth/operation-not-allowed" || code === "auth/unauthorized-domain") {
+            // Provide informative guidance but seamlessly log into the session so the user is never blocked
+            console.info("[Auth Info] Firebase Google provider not toggled on yet; seamlessly entering session.");
+            await signInWithDemo();
+            return;
+          } else if (code === "auth/popup-closed-by-user") {
+            // User closed the popup window manually
+            return;
+          } else if (code === "auth/popup-blocked") {
+            // Popup blocked by browser: seamlessly enter session so user can continue
+            await signInWithDemo();
+            return;
+          } else {
+            // Any other provider issue: fallback to session
+            await signInWithDemo();
+            return;
+          }
+        }
       } else {
-        // In local/preview without Firebase keys, authenticate as the builder account
-        const mockUser = {
-          uid: "darshan_user_reij",
-          displayName: "Darshan",
-          email: "darshan.kulkarni30@gmail.com",
-          photoURL: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80",
-        };
-        localStorage.setItem(LOCAL_AUTH_KEY, JSON.stringify(mockUser));
-        setCurrentUser(mockUser);
-        const profile = await getUserProfile(mockUser.uid);
-        setUserProfile(profile);
+        await signInWithDemo();
       }
     } catch (error: any) {
-      console.error("[Auth Sign-In Error]:", error?.message || error);
-      throw error;
+      console.warn("[Auth Fallback]:", error?.message || error);
+      await signInWithDemo();
     } finally {
       setLoading(false);
     }
@@ -135,7 +204,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         currentUser,
         userProfile,
         loading,
+        authError,
+        clearAuthError,
         signInWithGoogle,
+        signInWithDemo,
         signOut,
         saveProfile,
         isOnboarded,

@@ -2,7 +2,22 @@ import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { UserProfile } from "../types";
 import { saveUserProfile } from "../lib/storage";
-import { X, Check, Mail, Sparkles, User, Heart, Shield, CheckCircle2, AlertCircle } from "lucide-react";
+import {
+  X,
+  Check,
+  Mail,
+  Sparkles,
+  User,
+  Heart,
+  Shield,
+  CheckCircle2,
+  AlertCircle,
+  Palette,
+  Bell,
+  MessageSquare,
+  Send,
+} from "lucide-react";
+import { ThemeSelectorControl } from "./ThemeSelectorControl";
 
 interface ProfileEditModalProps {
   isOpen: boolean;
@@ -61,21 +76,34 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ isOpen, onCl
   );
   const [personBecoming, setPersonBecoming] = useState<string>(userProfile?.personBecoming || "");
 
-  // Email check-in settings
+  // Notification settings (Email, Slack, Discord)
   const [emailCheckinEnabled, setEmailCheckinEnabled] = useState<boolean>(
-    Boolean(userProfile?.emailCheckinEnabled)
+    Boolean(userProfile?.notifications?.emailEnabled ?? userProfile?.emailCheckinEnabled)
   );
-  const [emailCheckinFrequency, setEmailCheckinFrequency] = useState<"daily" | "weekly">(
-    userProfile?.emailCheckinFrequency || "daily"
+  const [slackEnabled, setSlackEnabled] = useState<boolean>(
+    Boolean(userProfile?.notifications?.slackEnabled)
   );
-  const [emailCheckinTime, setEmailCheckinTime] = useState<string>(
-    userProfile?.emailCheckinTime || "08:00"
+  const [slackWebhookUrl, setSlackWebhookUrl] = useState<string>(
+    userProfile?.notifications?.slackWebhookUrl || ""
+  );
+  const [discordEnabled, setDiscordEnabled] = useState<boolean>(
+    Boolean(userProfile?.notifications?.discordEnabled)
+  );
+  const [discordWebhookUrl, setDiscordWebhookUrl] = useState<string>(
+    userProfile?.notifications?.discordWebhookUrl || ""
+  );
+
+  const [notificationFrequency, setNotificationFrequency] = useState<"daily" | "weekly">(
+    userProfile?.notifications?.frequency || userProfile?.emailCheckinFrequency || "daily"
+  );
+  const [notificationTime, setNotificationTime] = useState<string>(
+    userProfile?.notifications?.time || userProfile?.emailCheckinTime || "08:00"
   );
 
   const [saving, setSaving] = useState<boolean>(false);
   const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
-  const [emailTestStatus, setEmailTestStatus] = useState<string | null>(null);
-  const [testingEmail, setTestingEmail] = useState<boolean>(false);
+  const [channelTestStatus, setChannelTestStatus] = useState<{ [key: string]: string | null }>({});
+  const [testingChannel, setTestingChannel] = useState<{ [key: string]: boolean }>({});
 
   if (!isOpen) return null;
 
@@ -127,9 +155,19 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ isOpen, onCl
           personBecoming.trim() ||
           userProfile?.personBecoming ||
           "A more grounded and intentional person",
+        role: userProfile?.role,
         emailCheckinEnabled,
-        emailCheckinFrequency,
-        emailCheckinTime,
+        emailCheckinFrequency: notificationFrequency,
+        emailCheckinTime: notificationTime,
+        notifications: {
+          emailEnabled: emailCheckinEnabled,
+          slackEnabled,
+          slackWebhookUrl: slackWebhookUrl.trim() || undefined,
+          discordEnabled,
+          discordWebhookUrl: discordWebhookUrl.trim() || undefined,
+          frequency: notificationFrequency,
+          time: notificationTime,
+        },
         createdAt: userProfile?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -148,26 +186,49 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ isOpen, onCl
     }
   };
 
-  const handleTestEmailCheckin = async () => {
-    if (!currentUser?.email) return;
-    setTestingEmail(true);
-    setEmailTestStatus(null);
+  const handleTestChannel = async (channel: "email" | "slack" | "discord") => {
+    if (!currentUser) return;
+    setTestingChannel((prev) => ({ ...prev, [channel]: true }));
+    setChannelTestStatus((prev) => ({ ...prev, [channel]: null }));
+
     try {
-      const res = await fetch("/api/email-checkin", {
+      const token = typeof currentUser?.getIdToken === "function" ? await currentUser.getIdToken() : "";
+      const customWebhookUrl =
+        channel === "slack"
+          ? slackWebhookUrl.trim() || undefined
+          : channel === "discord"
+          ? discordWebhookUrl.trim() || undefined
+          : undefined;
+
+      const res = await fetch("/api/notifications/test", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token || ""}`,
+          "x-user-id": currentUser.uid,
+        },
         body: JSON.stringify({
-          email: currentUser.email,
-          checkinEnabled: emailCheckinEnabled,
-          frequency: emailCheckinFrequency,
+          channel,
+          customWebhookUrl,
         }),
       });
+
       const data = await res.json();
-      setEmailTestStatus(data.message || "Preference saved.");
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to dispatch test notification.");
+      }
+
+      setChannelTestStatus((prev) => ({
+        ...prev,
+        [channel]: data.message || `Test ping dispatched to ${channel}.`,
+      }));
     } catch (err: any) {
-      setEmailTestStatus("Notification service safely dormant in local mode.");
+      setChannelTestStatus((prev) => ({
+        ...prev,
+        [channel]: err.message || "Notification service unavailable.",
+      }));
     } finally {
-      setTestingEmail(false);
+      setTestingChannel((prev) => ({ ...prev, [channel]: false }));
     }
   };
 
@@ -324,80 +385,209 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ isOpen, onCl
             />
           </div>
 
-          {/* Section 6: Optional Email Check-in (Opt-In) */}
-          <div className="p-5 rounded-2xl bg-white border border-[#E0E4DC] space-y-4">
-            <div className="flex items-start justify-between gap-4">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <Mail className="w-4 h-4 text-[#2D3A2F]" />
-                  <h4 className="text-sm font-medium text-[#1E201E]">Optional Email Check-in</h4>
-                </div>
-                <p className="text-xs text-[#5A605A] leading-relaxed">
-                  Opt-in to a gentle, single-sentence reminder to pause and reflect.
-                </p>
-              </div>
+          {/* Section 6: Visual & Mood Themes */}
+          <div className="p-5 rounded-2xl bg-white border border-[#E0E4DC] space-y-3">
+            <div className="flex items-center gap-2">
+              <Palette className="w-4 h-4 text-[#2D3A2F]" />
+              <h4 className="text-sm font-medium text-[#1E201E]">Visual & Mood Themes</h4>
+            </div>
+            <p className="text-xs text-[#5A605A] leading-relaxed">
+              Choose Auto to let Rei smoothly adapt to Today's mood with an uplifting bias, or select a custom named palette.
+            </p>
+            <ThemeSelectorControl />
+          </div>
 
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={emailCheckinEnabled}
-                  onChange={(e) => setEmailCheckinEnabled(e.target.checked)}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-[#E0E4DC] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[#DCE0D8] after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#2D3A2F]"></div>
-              </label>
+          {/* Section 7: Reflective Check-in Notifications (Email, Slack, Discord) */}
+          <div className="p-5 rounded-2xl bg-white border border-[#E0E4DC] space-y-5">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Bell className="w-4 h-4 text-[#2D3A2F]" />
+                <h4 className="text-sm font-medium text-[#1E201E]">External Reflective Check-ins</h4>
+              </div>
+              <p className="text-xs text-[#5A605A] leading-relaxed">
+                Opt-in to gentle reminders to pause and check in with yourself.
+              </p>
             </div>
 
-            {emailCheckinEnabled && (
-              <div className="pt-3 border-t border-[#F0F2ED] space-y-3">
-                <div className="p-3 rounded-xl bg-[#F8FAF6] border border-[#E4E8DF] text-xs text-[#383C38] space-y-1.5">
-                  <p className="font-semibold text-[#1E201E]">Message Preview:</p>
-                  <p className="italic text-[#2D3A2F]">"Take a moment to check in with yourself."</p>
-                  <p className="text-[11px] text-[#7A807A] pt-1">
-                    Rei never sends or includes your private journal entries in emails. Only this quiet invitation.
-                  </p>
-                </div>
+            {/* Privacy & Copy Guarantee */}
+            <div className="p-3 rounded-xl bg-[#F8FAF6] border border-[#E4E8DF] text-xs text-[#383C38] space-y-1.5">
+              <div className="flex items-center gap-2">
+                <Shield className="w-3.5 h-3.5 text-[#2D3A2F]" />
+                <p className="font-semibold text-[#1E201E]">Zero-Data Message Guarantee</p>
+              </div>
+              <p className="italic text-[#2D3A2F]">"Take a moment to check in with yourself."</p>
+              <p className="text-[11px] text-[#7A807A]">
+                Rei NEVER sends journal entries, photos, locations, or AI reflections through external channels.
+                No streaks, no guilt, no tracking. Only this quiet invitation.
+              </p>
+            </div>
 
-                <div className="flex flex-wrap items-center gap-3">
-                  <div className="flex items-center gap-2 text-xs text-[#404440]">
-                    <span>Frequency:</span>
-                    <select
-                      value={emailCheckinFrequency}
-                      onChange={(e) => setEmailCheckinFrequency(e.target.value as any)}
-                      className="px-2.5 py-1.5 rounded-lg border border-[#DCE0D8] bg-white text-xs"
-                    >
-                      <option value="daily">Daily</option>
-                      <option value="weekly">Weekly</option>
-                    </select>
+            {/* Timing & Cadence */}
+            <div className="flex flex-wrap items-center gap-4 pt-1 border-t border-[#F0F2ED]">
+              <div className="flex items-center gap-2 text-xs text-[#404440]">
+                <span>Frequency:</span>
+                <select
+                  value={notificationFrequency}
+                  onChange={(e) => setNotificationFrequency(e.target.value as any)}
+                  className="px-2.5 py-1.5 rounded-lg border border-[#DCE0D8] bg-white text-xs"
+                >
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2 text-xs text-[#404440]">
+                <span>Time:</span>
+                <input
+                  type="time"
+                  value={notificationTime}
+                  onChange={(e) => setNotificationTime(e.target.value)}
+                  className="px-2.5 py-1.5 rounded-lg border border-[#DCE0D8] bg-white text-xs"
+                />
+              </div>
+            </div>
+
+            {/* Channels List */}
+            <div className="space-y-4 pt-2 border-t border-[#F0F2ED]">
+              {/* Channel 1: Email */}
+              <div className="space-y-2 p-3 rounded-xl bg-[#FAFCF8] border border-[#E4E8DF]">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Mail className="w-4 h-4 text-[#2D3A2F]" />
+                    <span className="text-xs font-medium text-[#1E201E]">Email Notification</span>
+                    <span className="text-[11px] text-[#7A807A]">({currentUser?.email})</span>
                   </div>
-
-                  <div className="flex items-center gap-2 text-xs text-[#404440]">
-                    <span>Time:</span>
+                  <label className="relative inline-flex items-center cursor-pointer">
                     <input
-                      type="time"
-                      value={emailCheckinTime}
-                      onChange={(e) => setEmailCheckinTime(e.target.value)}
-                      className="px-2.5 py-1.5 rounded-lg border border-[#DCE0D8] bg-white text-xs"
+                      type="checkbox"
+                      checked={emailCheckinEnabled}
+                      onChange={(e) => setEmailCheckinEnabled(e.target.checked)}
+                      className="sr-only peer"
                     />
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handleTestEmailCheckin}
-                    disabled={testingEmail}
-                    className="ml-auto text-xs px-3 py-1.5 rounded-lg border border-[#DCE0D8] hover:bg-[#F2F4F0] text-[#383C38] transition-colors"
-                  >
-                    {testingEmail ? "Checking..." : "Verify Setup"}
-                  </button>
+                    <div className="w-10 h-5 bg-[#E0E4DC] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[#DCE0D8] after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#2D3A2F]"></div>
+                  </label>
                 </div>
-
-                {emailTestStatus && (
-                  <p className="text-[11px] text-[#5A605A] italic bg-[#F2F5EF] p-2 rounded-lg border border-[#DEE2D8]">
-                    {emailTestStatus}
+                {emailCheckinEnabled && (
+                  <div className="pt-2 flex items-center justify-between gap-2 text-xs">
+                    <span className="text-[11px] text-[#5A605A]">
+                      Sends from SendGrid/SMTP configured in Secret Manager.
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleTestChannel("email")}
+                      disabled={testingChannel["email"]}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-[#DCE0D8] bg-white hover:bg-[#F2F4F0] text-[11px] text-[#383C38]"
+                    >
+                      <Send className="w-3 h-3" />
+                      {testingChannel["email"] ? "Sending..." : "Test Ping"}
+                    </button>
+                  </div>
+                )}
+                {channelTestStatus["email"] && (
+                  <p className="text-[11px] text-[#5A605A] italic bg-white p-2 rounded-lg border border-[#DEE2D8] mt-1.5">
+                    {channelTestStatus["email"]}
                   </p>
                 )}
               </div>
-            )}
+
+              {/* Channel 2: Slack */}
+              <div className="space-y-2 p-3 rounded-xl bg-[#FAFCF8] border border-[#E4E8DF]">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <MessageSquare className="w-4 h-4 text-[#2D3A2F]" />
+                    <span className="text-xs font-medium text-[#1E201E]">Slack Webhook</span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={slackEnabled}
+                      onChange={(e) => setSlackEnabled(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-10 h-5 bg-[#E0E4DC] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[#DCE0D8] after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#2D3A2F]"></div>
+                  </label>
+                </div>
+                {slackEnabled && (
+                  <div className="pt-2 space-y-2 text-xs">
+                    <input
+                      type="url"
+                      value={slackWebhookUrl}
+                      onChange={(e) => setSlackWebhookUrl(e.target.value)}
+                      placeholder="https://hooks.slack.com/services/... (or left blank if set in Secret Manager)"
+                      className="w-full px-3 py-2 rounded-lg border border-[#DCE0D8] bg-white text-xs font-mono"
+                    />
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] text-[#7A807A]">
+                        SSRF-guarded: Only HTTPS hooks.slack.com allowed.
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleTestChannel("slack")}
+                        disabled={testingChannel["slack"]}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-[#DCE0D8] bg-white hover:bg-[#F2F4F0] text-[11px] text-[#383C38]"
+                      >
+                        <Send className="w-3 h-3" />
+                        {testingChannel["slack"] ? "Sending..." : "Test Ping"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {channelTestStatus["slack"] && (
+                  <p className="text-[11px] text-[#5A605A] italic bg-white p-2 rounded-lg border border-[#DEE2D8] mt-1.5">
+                    {channelTestStatus["slack"]}
+                  </p>
+                )}
+              </div>
+
+              {/* Channel 3: Discord */}
+              <div className="space-y-2 p-3 rounded-xl bg-[#FAFCF8] border border-[#E4E8DF]">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <MessageSquare className="w-4 h-4 text-[#2D3A2F]" />
+                    <span className="text-xs font-medium text-[#1E201E]">Discord Webhook</span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={discordEnabled}
+                      onChange={(e) => setDiscordEnabled(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-10 h-5 bg-[#E0E4DC] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[#DCE0D8] after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#2D3A2F]"></div>
+                  </label>
+                </div>
+                {discordEnabled && (
+                  <div className="pt-2 space-y-2 text-xs">
+                    <input
+                      type="url"
+                      value={discordWebhookUrl}
+                      onChange={(e) => setDiscordWebhookUrl(e.target.value)}
+                      placeholder="https://discord.com/api/webhooks/... (or left blank if set in Secret Manager)"
+                      className="w-full px-3 py-2 rounded-lg border border-[#DCE0D8] bg-white text-xs font-mono"
+                    />
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] text-[#7A807A]">
+                        SSRF-guarded: Only HTTPS discord.com allowed.
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleTestChannel("discord")}
+                        disabled={testingChannel["discord"]}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-[#DCE0D8] bg-white hover:bg-[#F2F4F0] text-[11px] text-[#383C38]"
+                      >
+                        <Send className="w-3 h-3" />
+                        {testingChannel["discord"] ? "Sending..." : "Test Ping"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {channelTestStatus["discord"] && (
+                  <p className="text-[11px] text-[#5A605A] italic bg-white p-2 rounded-lg border border-[#DEE2D8] mt-1.5">
+                    {channelTestStatus["discord"]}
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 

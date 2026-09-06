@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { ThemeProvider } from "./context/ThemeContext";
 import { ActiveTab, JournalInteraction } from "./types";
 import { LandingPage } from "./components/LandingPage";
 import { OnboardingModal } from "./components/OnboardingModal";
@@ -11,8 +12,10 @@ import { ReflectView } from "./components/ReflectView";
 import { PatternsView } from "./components/PatternsView";
 import { GrowView } from "./components/GrowView";
 import { YourModelView } from "./components/YourModelView";
+import { AdminDashboardView } from "./components/AdminDashboardView";
 import { EntryDetailModal } from "./components/EntryDetailModal";
 import { ProfileEditModal } from "./components/ProfileEditModal";
+import { ReiLogoMark } from "./components/ReiLogo";
 
 const MainApp: React.FC = () => {
   const { currentUser, userProfile, loading, isOnboarded } = useAuth();
@@ -22,12 +25,12 @@ const MainApp: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#FBFBF9] flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-[#1E201E] flex items-center justify-center text-[#FBFBF9] font-serif text-lg animate-pulse">
-            R
-          </div>
-          <p className="font-serif text-sm text-[#7A807A]">Opening Rei...</p>
+      <div className="min-h-screen bg-[var(--color-bg-canvas,#F6FAF6)] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <ReiLogoMark sizePx={44} className="animate-pulse" />
+          <p className="font-serif text-sm text-[var(--color-text-secondary,#405746)]">
+            Opening Rei...
+          </p>
         </div>
       </div>
     );
@@ -44,7 +47,7 @@ const MainApp: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#FBFBF9] text-[#1E201E] flex flex-col justify-between selection:bg-[#E3E8E3]">
+    <div className="min-h-screen bg-[var(--color-bg-canvas,#F6FAF6)] text-[var(--color-text-primary,#152419)] flex flex-col justify-between selection:bg-[var(--color-accent-subtle,#E3F2E8)] transition-colors duration-200">
       {/* Header & Nav */}
       <div>
         <Header
@@ -85,6 +88,8 @@ const MainApp: React.FC = () => {
           {activeTab === "grow" && <GrowView />}
 
           {activeTab === "model" && <YourModelView />}
+
+          {activeTab === "admin" && <AdminDashboardView />}
         </main>
       </div>
 
@@ -106,20 +111,29 @@ const MainApp: React.FC = () => {
       />
 
       {/* Understated Disclaimer Footer */}
-      <footer className="border-t border-[#EAECE6] bg-[#FAFBF8] py-6 px-6 text-center text-xs text-[#7A807A] space-y-1">
+      <footer className="border-t border-[var(--color-border-subtle,#E6EFE8)] bg-[var(--color-bg-canvas,#F6FAF6)] py-6 px-6 text-center text-xs text-[var(--color-text-muted,#677D6D)] space-y-1">
         <p>Rei is a private reflection tool, not medical, mental-health, or financial advice.</p>
-        <p className="text-[11px] text-[#9A9E9A]">
-          Built with care for the Cloud Run AI Challenge • Google Cloud & Firebase • Region: asia-south1
+        <p className="text-[11px] text-[var(--color-text-muted,#677D6D)]/80">
+          Built with care for the Cloud Run AI Challenge • Google Cloud & Firebase • Region: asia-southeast1
         </p>
       </footer>
     </div>
   );
 };
 
+const AppWithTheme: React.FC = () => {
+  const { userProfile } = useAuth();
+  return (
+    <ThemeProvider userProfile={userProfile}>
+      <MainApp />
+    </ThemeProvider>
+  );
+};
+
 export default function App() {
   return (
     <AuthProvider>
-      <MainApp />
+      <AppWithTheme />
     </AuthProvider>
   );
 }

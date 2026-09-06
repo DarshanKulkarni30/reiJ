@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { JournalInteraction } from "../types";
-import { X, Calendar, Clock, Sparkles, Check } from "lucide-react";
+import { X, Calendar, Clock, Sparkles, Check, MapPin, Image as ImageIcon } from "lucide-react";
 import { saveJournalInteraction } from "../lib/storage";
 
 interface EntryDetailModalProps {
@@ -83,7 +83,33 @@ export const EntryDetailModal: React.FC<EntryDetailModalProps> = ({
                 Tone: {entry.emotion}
               </span>
             )}
+            {entry.location && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F2F5EF] border border-[#DEE2D8] text-[#2D3A2F]">
+                <MapPin className="w-3.5 h-3.5" />
+                <span>{entry.location.name}</span>
+              </span>
+            )}
           </div>
+
+          {/* Attached Photo */}
+          {entry.photoUrl && (
+            <div className="p-3.5 rounded-2xl bg-white border border-[#E0E4DC] space-y-2">
+              <div className="flex items-center gap-1.5 text-xs text-[#606460]">
+                <ImageIcon className="w-3.5 h-3.5 text-[#2D3A2F]" />
+                <span className="font-medium">Attached Moment</span>
+                {entry.location && <span className="text-[11px]">• {entry.location.name}</span>}
+              </div>
+              <img
+                src={entry.photoUrl}
+                alt="Reflection moment"
+                className="w-full max-h-72 object-cover rounded-xl border border-[#ECEEE8]"
+                referrerPolicy="no-referrer"
+              />
+              {entry.photoCaption && (
+                <p className="text-xs text-[#525752] italic pt-1">"{entry.photoCaption}"</p>
+              )}
+            </div>
+          )}
 
           {/* Intention */}
           {entry.intention && (

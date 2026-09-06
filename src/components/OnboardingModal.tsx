@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { ArrowRight, Check, Sparkles, User, Heart, Target, Calendar } from "lucide-react";
+import { ReiLogo } from "./ReiLogo";
 
 const LIFE_CONTEXTS = [
   "Student",
@@ -146,7 +147,7 @@ export const OnboardingModal: React.FC = () => {
         <div>
           <div className="flex items-center justify-between border-b border-[#ECEEE8] pb-4 mb-6">
             <div className="flex items-center gap-2">
-              <span className="font-serif text-xl font-normal text-[#1E201E]">Rei</span>
+              <ReiLogo size="sm" showWordmark={true} />
               <span className="text-xs text-[#828882]">• Setting your living model</span>
             </div>
             <span className="text-xs font-medium text-[#606460] bg-[#EFEFEA] px-2.5 py-1 rounded-full">

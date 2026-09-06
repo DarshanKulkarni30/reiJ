@@ -13,6 +13,16 @@ import {
 import { db, auth, isConfigured, handleFirestoreError, OperationType } from "./firebase";
 import { UserProfile, JournalInteraction, TraitModel, WeeklyNote, PracticeRecord, PatternInsight } from "../types";
 
+// Helper to safely verify if authenticated Firestore operations are possible for this user
+function canUseFirestore(userId: string): boolean {
+  return Boolean(
+    isConfigured &&
+    db &&
+    auth?.currentUser &&
+    auth.currentUser.uid === userId
+  );
+}
+
 // Local storage fallback helpers
 function getLocalKey(userId: string, subkey: string): string {
   return `rei_${userId}_${subkey}`;
@@ -23,9 +33,9 @@ function getLocalKey(userId: string, subkey: string): string {
 // -------------------------------------------------------------
 export async function getUserProfile(userId: string): Promise<UserProfile | null> {
   const path = `users/${userId}`;
-  if (isConfigured && db) {
+  if (canUseFirestore(userId)) {
     try {
-      const docRef = doc(db, "users", userId);
+      const docRef = doc(db!, "users", userId);
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
         const data = docSnap.data() as UserProfile;
@@ -47,9 +57,9 @@ export async function saveUserProfile(profile: UserProfile): Promise<void> {
   // Always update local cache
   localStorage.setItem(getLocalKey(profile.uid, "profile"), JSON.stringify(profile));
 
-  if (isConfigured && db) {
+  if (canUseFirestore(profile.uid)) {
     try {
-      const docRef = doc(db, "users", profile.uid);
+      const docRef = doc(db!, "users", profile.uid);
       await setDoc(docRef, {
         ...profile,
         updatedAt: new Date().toISOString(),
@@ -65,9 +75,9 @@ export async function saveUserProfile(profile: UserProfile): Promise<void> {
 // -------------------------------------------------------------
 export async function getJournalInteractions(userId: string): Promise<JournalInteraction[]> {
   const path = `users/${userId}/interactions`;
-  if (isConfigured && db) {
+  if (canUseFirestore(userId)) {
     try {
-      const collRef = collection(db, "users", userId, "interactions");
+      const collRef = collection(db!, "users", userId, "interactions");
       const q = query(collRef, orderBy("createdAt", "desc"));
       const querySnap = await getDocs(q);
       const list: JournalInteraction[] = [];
@@ -104,9 +114,9 @@ export async function saveJournalInteraction(
   }
   localStorage.setItem(getLocalKey(userId, "entries"), JSON.stringify(updatedList));
 
-  if (isConfigured && db) {
+  if (canUseFirestore(userId)) {
     try {
-      const docRef = doc(db, "users", userId, "interactions", entry.id);
+      const docRef = doc(db!, "users", userId, "interactions", entry.id);
       await setDoc(docRef, {
         ...entry,
         userId,
@@ -123,9 +133,9 @@ export async function saveJournalInteraction(
 // -------------------------------------------------------------
 export async function getTraitModels(userId: string): Promise<TraitModel[]> {
   const path = `users/${userId}/model`;
-  if (isConfigured && db) {
+  if (canUseFirestore(userId)) {
     try {
-      const collRef = collection(db, "users", userId, "model");
+      const collRef = collection(db!, "users", userId, "model");
       const querySnap = await getDocs(collRef);
       const list: TraitModel[] = [];
       querySnap.forEach((doc) => {
@@ -160,9 +170,9 @@ export async function saveTraitModel(userId: string, model: TraitModel): Promise
   }
   localStorage.setItem(getLocalKey(userId, "model"), JSON.stringify(updatedList));
 
-  if (isConfigured && db) {
+  if (canUseFirestore(userId)) {
     try {
-      const docRef = doc(db, "users", userId, "model", traitId);
+      const docRef = doc(db!, "users", userId, "model", traitId);
       await setDoc(docRef, {
         ...model,
         updatedAt: new Date().toISOString(),
@@ -178,9 +188,9 @@ export async function saveTraitModel(userId: string, model: TraitModel): Promise
 // -------------------------------------------------------------
 export async function getWeeklyNotes(userId: string): Promise<WeeklyNote[]> {
   const path = `users/${userId}/weekly_notes`;
-  if (isConfigured && db) {
+  if (canUseFirestore(userId)) {
     try {
-      const collRef = collection(db, "users", userId, "weekly_notes");
+      const collRef = collection(db!, "users", userId, "weekly_notes");
       const q = query(collRef, orderBy("createdAt", "desc"));
       const snap = await getDocs(q);
       const list: WeeklyNote[] = [];
@@ -203,9 +213,9 @@ export async function saveWeeklyNote(userId: string, note: WeeklyNote): Promise<
   const updated = [note, ...existing.filter((n) => n.id !== note.id)];
   localStorage.setItem(getLocalKey(userId, "weekly_notes"), JSON.stringify(updated));
 
-  if (isConfigured && db) {
+  if (canUseFirestore(userId)) {
     try {
-      const docRef = doc(db, "users", userId, "weekly_notes", note.id);
+      const docRef = doc(db!, "users", userId, "weekly_notes", note.id);
       await setDoc(docRef, {
         ...note,
         userId,
@@ -221,9 +231,9 @@ export async function saveWeeklyNote(userId: string, note: WeeklyNote): Promise<
 // -------------------------------------------------------------
 export async function getPractices(userId: string): Promise<PracticeRecord[]> {
   const path = `users/${userId}/practices`;
-  if (isConfigured && db) {
+  if (canUseFirestore(userId)) {
     try {
-      const collRef = collection(db, "users", userId, "practices");
+      const collRef = collection(db!, "users", userId, "practices");
       const q = query(collRef, orderBy("createdAt", "desc"));
       const snap = await getDocs(q);
       const list: PracticeRecord[] = [];
@@ -253,9 +263,9 @@ export async function savePractice(userId: string, practice: PracticeRecord): Pr
   }
   localStorage.setItem(getLocalKey(userId, "practices"), JSON.stringify(updatedList));
 
-  if (isConfigured && db) {
+  if (canUseFirestore(userId)) {
     try {
-      const docRef = doc(db, "users", userId, "practices", practice.id);
+      const docRef = doc(db!, "users", userId, "practices", practice.id);
       await setDoc(docRef, {
         ...practice,
         userId,
@@ -271,9 +281,9 @@ export async function savePractice(userId: string, practice: PracticeRecord): Pr
 // -------------------------------------------------------------
 export async function getPatternInsights(userId: string): Promise<PatternInsight[]> {
   const path = `users/${userId}/patterns`;
-  if (isConfigured && db) {
+  if (canUseFirestore(userId)) {
     try {
-      const collRef = collection(db, "users", userId, "patterns");
+      const collRef = collection(db!, "users", userId, "patterns");
       const q = query(collRef, orderBy("createdAt", "desc"));
       const snap = await getDocs(q);
       const list: PatternInsight[] = [];
@@ -303,9 +313,9 @@ export async function savePatternInsight(userId: string, pattern: PatternInsight
   }
   localStorage.setItem(getLocalKey(userId, "patterns"), JSON.stringify(updatedList));
 
-  if (isConfigured && db) {
+  if (canUseFirestore(userId)) {
     try {
-      const docRef = doc(db, "users", userId, "patterns", pattern.id);
+      const docRef = doc(db!, "users", userId, "patterns", pattern.id);
       await setDoc(docRef, {
         ...pattern,
       });
